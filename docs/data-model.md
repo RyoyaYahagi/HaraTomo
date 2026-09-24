@@ -1,229 +1,190 @@
 # Data Model Draft
 
-初期段階のたたき台。実装時に変更する。
+MVPではSQLiteを使い、まず**2テーブル程度**から始める。
 
-## Event
+過度な正規化はせず、実際に必要になった時点で分割する。
 
-すべての出来事を時間軸で扱うための共通テーブル。
+---
+
+## 1. events
+
+食事・症状・生活要因を同じタイムライン上のeventとして扱う。
 
 ```text
-Event
+events
 - id
-- user_id
 - type
 - occurred_at
-- ended_at?
-- source
+- label
+- severity?
+- note?
+- details_json?
 - raw_text?
 - created_at
 - updated_at
 ```
 
-type:
+### type
+
+MVPでは3種類だけ。
 
 - meal
 - symptom
 - context
-- bowel
-- medication
-- note
 
-## Meal
+### 例
 
 ```text
-Meal
-- event_id
-- meal_type
-- restaurant?
-- menu_name?
-- note?
+id: 1
+type: meal
+occurred_at: 2026-09-24 12:30
+label: ラーメン
+severity: null
+
+id: 2
+type: context
+occurred_at: 2026-09-24 15:00
+label: 冷え
+
+id: 3
+type: symptom
+occurred_at: 2026-09-24 18:00
+label: 腹痛
+severity: 6
 ```
 
-## MealItem
+---
+
+## 2. profile
+
+高度なMemory Engineの代わりに、明示的なプロフィールだけ保持する。
 
 ```text
-MealItem
+profile
 - id
-- meal_event_id
-- food_name
-- amount?
-- unit?
-- ingredient_data?
-- source_id?
-```
-
-## Symptom
-
-```text
-Symptom
-- event_id
-- symptom_type
-- severity?
-- duration_minutes?
-```
-
-## ContextEvent
-
-```text
-ContextEvent
-- event_id
-- context_type
-- value?
-- unit?
-- severity?
+- data_json
+- updated_at
 ```
 
 例:
 
-- cold_exposure
-- sleep
-- stress
-- exercise
-
-## Memory
-
-```text
-Memory
-- id
-- user_id
-- category
-- statement
-- source_type
-- source_event_ids[]
-- confidence
-- active
-- created_at
-- updated_at
+```json
+{
+  "likes": ["魚"],
+  "dislikes": ["激辛料理"],
+  "notes": ["朝は調理に時間をかけたくない"]
+}
 ```
 
-source_type:
-
-- user_explicit
-- imported
-- computed
-
-## Insight
-
-```text
-Insight
-- id
-- user_id
-- hypothesis
-- feature_definition
-- outcome_definition
-- observation_count
-- support_count
-- effect_size?
-- confidence_level
-- calculation_version
-- generated_at
-```
-
-## ExternalSource
-
-```text
-ExternalSource
-- id
-- url
-- publisher
-- official
-- retrieved_at
-- content_hash
-```
-
-外食メニュー等の情報と紐付ける。
+MVPではprofileをAIが勝手に大量生成しない。
 
 ---
 
-# Future
+## 3. なぜテーブルをまとめるか
 
-## MealPlan
+当初案では:
 
-```text
-MealPlan
-- id
-- user_id
-- date
-- meal_type
-- recipe_id?
-- planned_at
-- status
-```
+- meals
+- meal_items
+- symptoms
+- context_events
+- memories
+- insights
+- external_sources
 
-status:
+などを分けていた。
 
-- planned
-- eaten_as_planned
-- modified
-- skipped
+しかしMVPでは:
 
-## PantryItem
+- タイムライン表示
+- typeごとの検索
+- 時刻差集計
 
-```text
-PantryItem
-- id
-- user_id
-- food_id
-- quantity
-- unit
-- purchased_at?
-- expires_at?
-- location
-```
+が中心なので、まずevents一つで十分。
 
-## ShoppingListItem
-
-```text
-ShoppingListItem
-- id
-- list_id
-- food_id
-- quantity
-- unit
-- source
-- checked
-```
-
-source:
-
-- meal_plan
-- manual
-- low_stock
+具体的な要件が出てから分割する。
 
 ---
 
-## 設計上の注意
+## 4. Insightは保存しない
 
-### Raw dataを残す
+MVPではInsightテーブルを作らない。
 
-AI構造化後のデータだけでなく、元の入力 `raw_text` を保持できるようにする。
+質問・画面表示時にその場で計算する。
 
-理由:
+例:
 
-- AI抽出ミスを後から修正できる
-- parser更新後に再処理できる
-- debugging/evaluationに使える
+```text
+腹痛イベントを取得
+ ↓
+各腹痛の6時間前までのeventを取得
+ ↓
+label別にcount
+ ↓
+表示
+```
 
-ただし音声原本はprivacy・storage costの観点から別ポリシーとする。
+これで十分な間は永続化しない。
 
-### EventとInferenceを混ぜない
+---
 
-ユーザーが実際に記録した事実:
+## 5. Raw input
 
-> 18:00 腹痛
+AIが抽出した後でも元の自然文を残す。
 
-と、システムが導いた推測:
+MVPでは各eventのraw_textに同じ入力が重複しても許容する。
 
-> 牛乳との関連の可能性
+正規化のためのinputsテーブルは、重複が問題になってから追加する。
 
-は別テーブルにする。
+---
 
-### Versioning
+## 6. 将来分割する候補
 
-AIや集計ロジックを更新しても再現可能なように、
+必要になった時点で追加する。
 
-- extraction_model
-- extraction_version
-- calculation_version
+- meal_items
+- bowel_events
+- memories
+- insights
+- external_sources
+- restaurants
+- menu_items
+- meal_plans
+- recipes
+- pantry_items
+- shopping_lists
 
-などを保持する。
+---
+
+## 7. 設計原則
+
+### FactとInferenceを混ぜない
+
+保存するeventはユーザーが記録・確認した事実を基本とする。
+
+例:
+
+```text
+18:00 腹痛
+```
+
+一方、
+
+```text
+牛乳と腹痛に関連がありそう
+```
+
+はeventとして保存しない。
+
+### SQLiteで計算できるものはコードで計算する
+
+- count
+- time difference
+- grouping
+- filtering
+
+をLLMへ任せない。
+
+### 将来のためだけの列を増やさない
+
+必要になった時点でmigrationする。
