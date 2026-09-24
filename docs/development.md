@@ -1,10 +1,6 @@
 # HaraTomo 開発準備
 
-## 1. MVPで採用する構成
-
-まずWebアプリとして作る。
-
-### Stack
+## 1. MVP Stack
 
 - Next.js
 - TypeScript
@@ -12,323 +8,359 @@
 - Drizzle ORM
 - Zod
 - LLM API
+- Jev
 
-MVPでは単一Next.jsアプリにまとめる。
+単一Next.jsアプリとして作る。
 
 ```text
 HaraTomo/
 ├── app/
 ├── components/
 ├── lib/
-│   ├── db/
 │   ├── ai/
+│   │   ├── extract.ts
+│   │   └── jev.ts
+│   ├── db/
 │   └── insights/
 ├── drizzle/
-├── docs/
-└── ...
+└── docs/
 ```
 
-以下はMVPでは導入しない。
+MVPでは以下を導入しない。
 
-- PostgreSQL
-- Supabase
-- Firebase
+- PostgreSQL / Supabase / Firebase
 - Vector DB
-- Redis
-- Queue
+- Redis / Queue
 - Background Worker
 - Microservices
-- Separate API server
-- Authentication
-- RLS
-- Audit log
+- Separate API Server
+- Authentication / RLS
+- Generic Agent Framework
 
 ---
 
-## 2. SQLite
+## 2. AIアーキテクチャ
 
-MVPではSQLiteを直接利用する。
-
-理由:
-
-- 個人開発でセットアップが軽い
-- SQLで時系列集計しやすい
-- ローカルで完結できる
-- 後から他のSQL DBへ移しやすい
-
-注意:
-
-公開デプロイする段階では、実行環境がSQLiteファイルを永続化できるか確認する必要がある。
-
-MVPのローカル開発ではこの問題を先に解かない。
-
----
-
-## 3. 最小AI Pipeline
-
-### Input
+基本原則:
 
 ```text
-text
- ↓
-LLM structured output
- ↓
-Zod validation
- ↓
-confirmation UI
- ↓
+自由生成・抽出 → LLM
+固定候補からの判断 → Jev
+確定計算 → TypeScript / SQL
+型保証 → Zod
+保存 → SQLite
+```
+
+### Input Pipeline
+
+```text
+raw text
+  ↓
+LLM extraction
+  ↓
+Jev decisions
+  ├─ eventType Choice
+  ├─ normalizedLabel Choice
+  ├─ supportedBySource Boolean
+  └─ needsClarification Boolean
+  ↓
+Zod
+  ↓
+confirmation when needed
+  ↓
 SQLite
 ```
 
-まずtextだけで完成させる。
-
-音声は後から:
-
-```text
-voice
- ↓
-speech-to-text
- ↓
-上と同じtext pipeline
-```
-
-に接続する。
+JevをLLMの代替として全面利用しない。
 
 ---
 
-## 4. LLM出力
+## 3. LLM
 
-最初はevent schemaを小さく保つ。
+LLMは出力空間を固定しづらい処理に使う。
+
+例:
+
+- 「ミラノ風ドリア」など自由な料理名
+- note
+- 自然文の分割
+- 相対時刻の解釈候補
+- ユーザー向け説明
+
+EventDraft例:
 
 ```ts
-type EventDraft = {
-  type: "meal" | "symptom" | "context";
-  occurredAt: string;
+type RawEventDraft = {
+  rawType?: string;
+  occurredAt?: string;
   label: string;
   severity?: number;
   note?: string;
 };
 ```
 
-LLMに以下をやらせない。
+---
 
-- 症状率の計算
-- 原因判定
-- DB検索
-- 数値の推測
+## 4. Jev
+
+Jevは **Choice / Boolean / Score が自然な判断だけ**に使う。
+
+### 4.1 event type
+
+```ts
+type EventType =
+  | "meal"
+  | "symptom"
+  | "context"
+  | "other";
+```
+
+LLMに長い説明をさせる必要がない分類なのでJev向き。
+
+### 4.2 normalization
+
+例:
+
+```text
+input label: お腹が張る
+Choice:
+- abdominal_pain
+- diarrhea
+- constipation
+- bloating
+- gas
+- nausea
+- indigestion
+- bowel_sound
+- other
+```
+
+元のlabelは失わない。
+
+### 4.3 source verification
+
+```text
+Boolean:
+candidateはraw textに支持されているか
+```
+
+これを医学的な真偽判定には使わない。
+
+### 4.4 clarification gate
+
+```text
+Boolean:
+このeventを記録する前に追加質問が必要か
+```
+
+高確率で不要な場合のみ確認を省略する設計は、十分なfixture評価後に有効化する。
+
+### 4.5 Score
+
+P0では基本的に不要。
+
+将来、複数候補への適合度評価が必要になったら使う。
 
 ---
 
-## 5. DB
+## 5. Jev confidenceの扱い
 
-MVPでは細かい正規化をしすぎない。
+Jevが返す確率を:
 
-最低限:
+- 症状の原因確率
+- 医学的リスク
+- ユーザーが安全に食べられる確率
+
+として解釈しない。
+
+あくまで:
+
+**「このChoice / Boolean判断についてモデルがどの程度確信しているか」**
+
+として使う。
+
+thresholdはコードに定数として置き、fixtureで調整する。
+
+例:
+
+```ts
+const AUTO_ACCEPT_THRESHOLD = 0.95;
+```
+
+ただしP0初期では自動保存を急がず、まず確認UIありで評価する。
+
+---
+
+## 6. SQLite
+
+MVPでは:
 
 - events
 - profile
 
 だけから始める。
 
-将来必要になった時点で:
-
-- meal_items
-- insights
-- sources
-- meal_plans
-- pantry_items
-- shopping_lists
-
-などへ分離する。
-
----
-
-## 6. Personal Memory
-
-MVPではMemory Engineを作らない。
-
-「AIが自分を知っている」体験はまず:
-
-1. SQLiteに過去eventがある
-2. profileに明示的な好みがある
-3. 質問時にコードが必要なデータを取得
-4. LLMへ渡す
-
-だけで実現する。
-
 ```text
-question
- ↓
-SQL / TypeScript retrieval
- ↓
-computed summary
- ↓
-profile
- ↓
-LLM
+events
+- id
+- type
+- occurred_at
+- label
+- normalized_label?
+- severity?
+- note?
+- raw_text?
+- created_at
+- updated_at
 ```
 
-EmbeddingやVector Searchは必要になってから追加する。
+Jev専用テーブルは作らない。
+
+必要ならdevelopment/debug logとして:
+
+- decision name
+- selected value
+- probability
+- model/version
+
+を一時保存する程度から始める。
 
 ---
 
 ## 7. Insight
 
-MVPでは1種類だけ実装する。
+MVPは「症状の前6時間に何があったか」だけ。
 
-**「症状の前6時間に何があったか」**
+すべてSQL / TypeScriptで計算する。
 
-例:
+Jevを使わない。
 
-腹痛10件について、その6時間前までのmeal/contextを取得する。
-
-計算するもの:
-
-- 症状件数
-- 各labelの出現回数
+- time difference
+- grouping
+- count
 - sample size
 
-最初から以下は実装しない。
-
-- baseline rate
-- lift
-- Bayesian update
-- confounder adjustment
-- causal inference
-- ML
-- custom confidence score
-- N-of-1 experiment
-
-必要性が見えてから追加する。
+をAIに委ねない。
 
 ---
 
-## 8. Authentication
+## 8. Personalization
 
-ローカルMVPではログインを作らない。
+MVPではMemory Engineを作らない。
 
-単一ユーザー前提で十分。
+```text
+SQLite events
+ + profile
+ + code-generated summary
+        ↓
+      LLM
+```
 
-公開して他のユーザーに使ってもらうタイミングで:
-
-- Authentication
-- user_id
-- access control
-
-を追加する。
-
----
-
-## 9. Export / Delete
-
-MVP:
-
-- event単位の削除
-- 全event削除
-- JSON export
-
-CSV、アカウント削除、複雑なprivacy dashboardは公開版まで後回し。
+必要ならJevでユーザー意図を固定カテゴリへ分類できるが、価値が出るまでは追加しない。
 
 ---
 
-## 10. Testing
+## 9. Testing
 
-テストもMVP範囲に合わせる。
+### deterministic
 
-### 必須
+- Zod validation
+- CRUD
+- datetime
+- 6h window
 
-- Zod schema validation
-- event CRUD
-- 日時処理
-- 6時間window集計
+### LLM fixture
 
-### AI fixture
+5〜10件から開始。
 
-5〜10個程度の固定入力から始める。
+### Jev fixture
+
+最低限:
+
+1. event type
+2. symptom normalization
+3. context normalization
+4. supportedBySource
+5. needsClarification
+
+について、明確例と曖昧例を用意する。
 
 例:
 
 ```text
-昨日の昼に牛丼。夕方冷えて、夜8時に腹痛7くらい。
+「20時に下痢した」
+expected:
+type = symptom
+normalized = diarrhea
+needsClarification = false
 ```
 
-期待:
+```text
+「昨日なんかお腹微妙」
+expected:
+needsClarification = true
+```
 
-- meal: 牛丼
-- context: 冷え
-- symptom: 腹痛
-- severity: 7
-
-最初から大規模なAI evaluation基盤は作らない。
-
----
-
-## 11. Error handling
-
-最低限:
-
-- LLM失敗時に元入力を失わない
-- JSON parse / schema validation失敗を表示
-- DB保存失敗を表示
-
-高度なobservability基盤は不要。
-
-development中はconsole / local logで十分。
+モデルやpromptを変更したらfixtureで回帰確認する。
 
 ---
 
-## 12. 開発順序
+## 10. Error Handling
+
+- LLM失敗時もraw textを保持
+- Jev失敗時はLLM結果を勝手に確定せず確認UIへfallback
+- schema validation失敗も確認UIへ
+- DB failureを表示
+
+Jevが落ちても記録不能にならないようにする。
+
+---
+
+## 11. 開発順序
 
 ### Step 1
-
-Next.js + SQLite + Drizzleを起動。
+Next.js + SQLite + Drizzle。
 
 ### Step 2
-
-手動フォームでevent CRUD。
-
-AIなしでもTimelineを動かす。
+手動event CRUD + Timeline。
 
 ### Step 3
-
-自然文 → structured event。
+自然文 → LLM EventDraft。
 
 ### Step 4
-
-確認UI → 保存。
+Jev event type / normalization。
 
 ### Step 5
-
-症状前6時間の簡易Insight。
-
-ここで最初のP0完成。
+Jev supportedBySource / needsClarification。
 
 ### Step 6
-
-音声入力。
+Zod + confirmation UI + SQLite保存。
 
 ### Step 7
+6時間Insight。
 
-過去ログについてAIに質問。
+ここでP0。
 
 ### Step 8
+音声。
 
-簡単なprofile。
+### Step 9
+AI Ask / profile。
 
 ---
 
-## 13. 将来まで作り込みすぎないルール
+## 12. YAGNI
 
-実装時は次を避ける。
+次を避ける。
 
+- Jev用の独自framework
+- 全判断をJev化
+- 全出力をScore化
 - 将来用interfaceの大量作成
-- 未使用のRepository abstraction
-- Generic agent framework
-- 複雑なplugin system
-- 独自workflow engine
-- 将来のモバイルアプリを想定した過剰なAPI分離
-- 使っていないDBテーブル
-- 早すぎるキャッシュ
-- 早すぎる最適化
+- generic agent framework
+- workflow engine
+- 未使用テーブル
+- 早すぎるcache
+- 過剰なAPI分離
 
-必要になったときに追加する。
+**「固定候補の曖昧な判断か？」がYesのときだけJevを検討する。**
