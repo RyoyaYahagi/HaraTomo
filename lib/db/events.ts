@@ -21,6 +21,26 @@ export function createEventRepository(db: EventDatabase) {
         .get();
     },
 
+    createMany(inputs: unknown[]): EventRow[] {
+      const parsed = inputs.map((input) => eventInputSchema.parse(input));
+      return db.transaction((transaction) =>
+        parsed.map((event) =>
+          transaction
+            .insert(events)
+            .values({
+              ...event,
+              occurredAt: new Date(event.occurredAt).toISOString(),
+              normalizedLabel: event.normalizedLabel ?? null,
+              severity: event.severity ?? null,
+              note: event.note ?? null,
+              rawText: event.rawText ?? null,
+            })
+            .returning()
+            .get(),
+        ),
+      );
+    },
+
     getById(id: number): EventRow | undefined {
       return db.select().from(events).where(eq(events.id, id)).get();
     },

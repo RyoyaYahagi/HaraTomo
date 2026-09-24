@@ -100,6 +100,23 @@ SQLite
 
 JevをLLMの代替として全面利用しない。
 
+現行のP0記録画面はGeminiで候補を抽出し、Jevで種類・症状/生活要因の分類・元文支持・追加確認要否を判定する。初期実装では、曖昧さに関係なく全候補を確認画面へ出す。日付が省略された候補には利用日の現地日付を入れ、時刻が省略・曖昧な候補は空欄にして保存前の入力を必須にする。Jevが失敗した候補も元文とGemini候補を保持して確認画面に出す。Geminiまたは出力schema検証が失敗した場合はHomeの下書きを保持し、手動入力へ進める。
+
+#### JavaScript SDK接続
+
+- Gemini: `@google/genai` の `GoogleGenAI.models.generateContent()` をサーバー側で呼び、JSON Schema付きJSONを受け取ってZodで再検証する。現行モデル識別子は `gemini-3.8-flash`。
+- Jev: `@typesafe-ai/sdk` の `TypeSafeClient.systemOne()` に `choice()` と `noul()` の質問を渡す。現行の既定モデル識別子は `jev-latest`。SDKの `noul` はYesの確率を返すため、Boolean判断へ変換する境界は0.5とする。この確率は画面へ出さない。
+- 接続コードは`server-only`とし、キーは `GEMINI_API_KEY` と `TYPESAFE_API_KEY` からだけ読む。追跡対象の `.env.example` は空欄にする。開発者ごとの `.env.local` はGitへ追加しない。
+- 複数候補の保存はSQLite transactionでまとめる。途中のDB書き込みが失敗した場合は全件を取り消す。
+- fixtureテストはAPIを呼び出さず、実APIによる確認は後日行う。
+
+SDKの呼び出し形とモデル識別子は、2026-09-24に確認した公式資料と導入済みSDK型定義に基づく。
+
+- [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output)
+- [Gemini generateContent API](https://ai.google.dev/api/generate-content)
+- [TypeSafe JavaScript SDK](https://github.com/typesafe-ai/typesafe-sdk-js)
+- [TypeSafe JavaScript SDK documentation](https://docs.typesafe.ai/sdk/javascript)
+
 ---
 
 ## 3. LLM
@@ -118,11 +135,12 @@ EventDraft例:
 
 ```ts
 type RawEventDraft = {
-  rawType?: string;
-  occurredAt?: string;
+  rawType: "meal" | "symptom" | "context" | "other" | null;
+  date: string | null;
+  time: string | null;
   label: string;
-  severity?: number;
-  note?: string;
+  severity: number | null;
+  note: string | null;
 };
 ```
 

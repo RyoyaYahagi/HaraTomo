@@ -34,6 +34,29 @@ const typeLabels: Record<(typeof eventTypes)[number], string> = {
   other: "その他",
 };
 
+const normalizedLabelOptions: Record<(typeof eventTypes)[number], Record<string, string>> = {
+  meal: {},
+  symptom: {
+    abdominal_pain: "腹痛",
+    diarrhea: "下痢",
+    constipation: "便秘",
+    bloating: "膨満感",
+    gas: "ガス",
+    nausea: "吐き気",
+    indigestion: "消化不良",
+    bowel_sound: "腸の音",
+  },
+  context: {
+    cold_exposure: "冷え",
+    lack_of_sleep: "睡眠不足",
+    stress: "ストレス",
+    exercise: "運動",
+    alcohol: "飲酒",
+    caffeine: "カフェイン",
+  },
+  other: {},
+};
+
 type EventEditorProps = {
   event?: EventRow;
 };
@@ -114,9 +137,12 @@ export function EventEditor({ event }: EventEditorProps) {
             name="type"
             required
             value={type}
-            onChange={(eventChange) =>
-              setType(eventChange.currentTarget.value as (typeof eventTypes)[number] | "")
-            }
+            onChange={(eventChange) => {
+              const nextType = eventChange.currentTarget.value as (typeof eventTypes)[number] | "";
+              setType(nextType);
+              if (nextType !== type) setNormalizedLabel("");
+              if (nextType !== "symptom") setSeverity("");
+            }}
           >
             <option value="" disabled>
               種類を選択
@@ -144,13 +170,17 @@ export function EventEditor({ event }: EventEditorProps) {
 
         <div className="field">
           <label htmlFor="normalizedLabel">分類名（任意）</label>
-          <input
+          <select
             id="normalizedLabel"
             name="normalizedLabel"
-            type="text"
             value={normalizedLabel}
             onChange={(eventChange) => setNormalizedLabel(eventChange.currentTarget.value)}
-          />
+          >
+            <option value="">分類なし</option>
+            {type && Object.entries(normalizedLabelOptions[type]).map(([value, labelText]) => (
+              <option key={value} value={value}>{labelText}</option>
+            ))}
+          </select>
         </div>
 
         {type === "symptom" ? (

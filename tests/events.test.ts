@@ -41,6 +41,34 @@ test("severity is an integer from 0 to 10 and only belongs to symptoms", () => {
   );
 });
 
+test("normalized labels must match the event type across every write path", () => {
+  const base = {
+    occurredAt: "2026-09-24T03:00:00.000Z",
+    label: "冷え",
+  };
+
+  assert.equal(
+    eventInputSchema.safeParse({ ...base, type: "context", normalizedLabel: "cold_exposure" }).success,
+    true,
+  );
+  assert.equal(
+    eventInputSchema.safeParse({ ...base, type: "symptom", normalizedLabel: "abdominal_pain" }).success,
+    true,
+  );
+  assert.equal(
+    eventInputSchema.safeParse({ ...base, type: "symptom", normalizedLabel: "cold_exposure" }).success,
+    false,
+  );
+  assert.equal(
+    eventInputSchema.safeParse({ ...base, type: "context", normalizedLabel: "abdominal_pain" }).success,
+    false,
+  );
+  assert.equal(
+    eventInputSchema.safeParse({ ...base, type: "meal", normalizedLabel: "cold_exposure" }).success,
+    false,
+  );
+});
+
 test("event input requires a timezone-aware valid timestamp and a nonempty label", () => {
   const base = {
     type: "meal",
@@ -135,6 +163,14 @@ test("event repository validates input before writing to SQLite", () => {
         severity: 6,
       }),
     );
+    assert.throws(() =>
+      repository.create({
+        type: "symptom",
+        occurredAt: "2026-09-24T03:00:00.000Z",
+        label: "冷え",
+        normalizedLabel: "cold_exposure",
+      }),
+    );
     assert.equal(repository.listAll().length, 0);
     assert.throws(() =>
       connection.db.run(
@@ -160,6 +196,39 @@ test("event repository stores timestamps as UTC ISO strings", () => {
     });
 
     assert.equal(event.occurredAt, "2026-09-24T03:00:00.000Z");
+  } finally {
+    connection.close();
+  }
+});
+
+test("event repository rolls back every event when a batch insert fails", () => {
+  const connection = connectDatabase(":memory:");
+  const repository = createEventRepository(connection.db);
+
+  try {
+    connection.db.run(
+      sql.raw(`
+        create trigger reject_batch_event before insert on events
+        when new.label = 'reject this event'
+        begin select raise(abort, 'fixture failure'); end
+      `),
+    );
+
+    assert.throws(() =>
+      repository.createMany([
+        {
+          type: "meal",
+          occurredAt: "2026-09-24T03:00:00.000Z",
+          label: "保存されない食事",
+        },
+        {
+          type: "meal",
+          occurredAt: "2026-09-24T04:00:00.000Z",
+          label: "reject this event",
+        },
+      ]),
+    );
+    assert.deepEqual(repository.listAll(), []);
   } finally {
     connection.close();
   }

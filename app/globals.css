@@ -273,6 +273,93 @@ a:focus-visible {
   margin-top: 24px;
 }
 
+.processing-message {
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+}
+
+.processing-message p:first-child {
+  margin-bottom: 4px;
+}
+
+.source-preview,
+.source-text p {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.confirmation-section > .muted {
+  margin-top: 20px;
+}
+
+.source-text summary,
+.candidate-summary {
+  cursor: pointer;
+}
+
+.source-text p {
+  margin: 12px 0 0;
+}
+
+.candidate-list {
+  margin: 24px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.candidate-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  min-height: 32px;
+}
+
+.candidate-summary span:first-child,
+.candidate-summary span:nth-child(2),
+.candidate-source-status {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.candidate-attention {
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.candidate-details {
+  padding: 16px 0 0 18px;
+}
+
+.candidate-source-status {
+  margin-bottom: 16px;
+}
+
+.candidate-fields {
+  display: grid;
+  gap: 16px;
+}
+
+.candidate-remove {
+  margin-top: 16px;
+}
+
+.confirmation-form > .button-primary {
+  width: 100%;
+}
+
+.confirmation-manual-link {
+  display: inline-block;
+  margin-top: 16px;
+}
+
 .text-link {
   color: var(--muted-foreground);
   text-underline-offset: 3px;

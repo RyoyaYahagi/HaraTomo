@@ -2,6 +2,26 @@ import { z } from "zod";
 
 export const eventTypes = ["meal", "symptom", "context", "other"] as const;
 
+export const symptomNormalizationLabels = [
+  "abdominal_pain",
+  "diarrhea",
+  "constipation",
+  "bloating",
+  "gas",
+  "nausea",
+  "indigestion",
+  "bowel_sound",
+] as const;
+
+export const contextNormalizationLabels = [
+  "cold_exposure",
+  "lack_of_sleep",
+  "stress",
+  "exercise",
+  "alcohol",
+  "caffeine",
+] as const;
+
 export const eventTypeSchema = z.enum(eventTypes);
 
 export const eventInputSchema = z
@@ -20,6 +40,25 @@ export const eventInputSchema = z
         code: "custom",
         path: ["severity"],
         message: "症状以外には強さを設定できません",
+      });
+    }
+    if (event.normalizedLabel == null) return;
+
+    const valid =
+      event.type === "symptom"
+        ? symptomNormalizationLabels.includes(
+            event.normalizedLabel as (typeof symptomNormalizationLabels)[number],
+          )
+        : event.type === "context"
+          ? contextNormalizationLabels.includes(
+              event.normalizedLabel as (typeof contextNormalizationLabels)[number],
+            )
+          : false;
+    if (!valid) {
+      context.addIssue({
+        code: "custom",
+        path: ["normalizedLabel"],
+        message: "分類名が種類と一致しません",
       });
     }
   });

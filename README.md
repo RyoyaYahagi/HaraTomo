@@ -95,6 +95,8 @@ SQLite
 - **分類・判断:** Jev
 - **構成:** 単一Next.jsアプリ
 
+Gemini (`@google/genai`) とJev (`@typesafe-ai/sdk`) はNext.jsサーバー側から接続する。環境変数名は `.env.example` を参照する。APIキーを設定していない開発環境ではAI解析と実API確認は利用できないが、手動記録とfixtureによる決定的テストは利用できる。
+
 ```text
 Browser
   ↓
@@ -235,4 +237,4 @@ Jevの判断結果は、必要にならない限り専用テーブルを作ら�
 
 ## Status
 
-🚧 Web MVP Planning
+🚧 Web MVP実装中。Gemini/Jevの実API確認とSimple Insightは未完了。
