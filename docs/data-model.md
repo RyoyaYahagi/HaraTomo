@@ -1,8 +1,8 @@
-# Data Model Draft
+# Data Model
 
-MVPではSQLiteを使い、まず**2テーブル程度**から始める。
+P0ではSQLiteの`events`テーブルだけを使う。
 
-過度な正規化はせず、実際に必要になった時点で分割する。
+profileはP1で必要になった時点で追加する。過度な正規化や将来用の列は先回りして導入しない。
 
 ---
 
@@ -16,48 +16,53 @@ events
 - type
 - occurred_at
 - label
+- normalized_label?
 - severity?
 - note?
-- details_json?
 - raw_text?
 - created_at
 - updated_at
 ```
 
+`occurred_at`、`created_at`、`updated_at`はUTCのISO 8601文字列として保存する。日時入力と表示は利用者のPCの現地時刻に合わせる。
+
 ### type
 
-MVPでは3種類だけ。
+P0では次の4種類を使う。
 
 - meal
 - symptom
 - context
+- other
+
+`severity`は症状だけに使う0〜10の整数とする。
 
 ### 例
 
 ```text
 id: 1
 type: meal
-occurred_at: 2026-09-24 12:30
+occurred_at: 2026-09-24T03:30:00.000Z
 label: ラーメン
 severity: null
 
 id: 2
 type: context
-occurred_at: 2026-09-24 15:00
+occurred_at: 2026-09-24T06:00:00.000Z
 label: 冷え
 
 id: 3
 type: symptom
-occurred_at: 2026-09-24 18:00
+occurred_at: 2026-09-24T09:00:00.000Z
 label: 腹痛
 severity: 6
 ```
 
 ---
 
-## 2. profile
+## 2. profile（P1）
 
-高度なMemory Engineの代わりに、明示的なプロフィールだけ保持する。
+P0ではprofileテーブルを作らない。P1で必要になったら、明示された好みだけを保持する。
 
 ```text
 profile
@@ -76,7 +81,7 @@ profile
 }
 ```
 
-MVPではprofileをAIが勝手に大量生成しない。
+profileをAIが勝手に大量生成しない。
 
 ---
 

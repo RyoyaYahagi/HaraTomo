@@ -178,12 +178,10 @@ events
 - note?
 - raw_text?
 - created_at
-
-profile
-- id
-- data_json
 - updated_at
 ```
+
+P0では`events`だけを作る。プロフィール情報はP1で必要になった時点で追加する。
 
 Jevの判断結果は、必要にならない限り専用テーブルを作らない。debug用に一時ログへ残す程度から始める。
 

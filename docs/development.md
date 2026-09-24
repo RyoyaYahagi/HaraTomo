@@ -220,12 +220,11 @@ const AUTO_ACCEPT_THRESHOLD = 0.95;
 
 ## 6. SQLite
 
-MVPでは:
+P0では:
 
 - events
-- profile
 
-だけから始める。
+だけを作る。profileはP1で必要になった時点で追加する。
 
 ```text
 events
@@ -237,9 +236,11 @@ events
 - severity?
 - note?
 - raw_text?
-- created_at
-- updated_at
+- created_at (UTC ISO 8601)
+- updated_at (UTC ISO 8601)
 ```
+
+`type`は`meal`、`symptom`、`context`、`other`のいずれかとする。`severity`は症状に限り、0〜10の整数を保存する。PC現地時刻で入力・表示し、DBではUTCのISO 8601文字列に統一する。
 
 Jev専用テーブルは作らない。
 
@@ -277,13 +278,12 @@ MVPではMemory Engineを作らない。
 
 ```text
 SQLite events
- + profile
  + code-generated summary
         ↓
       LLM
 ```
 
-必要ならJevでユーザー意図を固定カテゴリへ分類できるが、価値が出るまでは追加しない。
+profileはP1で必要になった場合にのみこの要約へ含める。必要ならJevでユーザー意図を固定カテゴリへ分類できるが、価値が出るまでは追加しない。
 
 ---
 
