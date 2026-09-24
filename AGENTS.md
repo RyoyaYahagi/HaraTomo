@@ -2,6 +2,10 @@
 
 HaraTomoで作業するAI coding agent向けのrepository-wide instructions。
 
+## Git運用
+
+機能単位で `develop` から `codex/<task>` ブランチを作り、利用可能な決定的検証とレビューを終えてからローカル `develop` に統合する。`main` / `develop` では実装コミットしない。手順は [`docs/development.md`](docs/development.md#git-運用) を参照。
+
 ## Source of truth
 
 frontend / UI / UXに触れる前に必ず読む。
