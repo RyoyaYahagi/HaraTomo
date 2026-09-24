@@ -54,6 +54,7 @@ export function EventEditor({ event }: EventEditorProps) {
   const [note, setNote] = useState(event?.note ?? "");
   const [rawText, setRawText] = useState(event?.rawText ?? "");
   const [rawTextEdited, setRawTextEdited] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const rawTextValue = !event && !rawTextEdited ? persistedDraft : rawText;
   const eventId = event?.id;
   const formActionHandler = useMemo(
@@ -86,7 +87,8 @@ export function EventEditor({ event }: EventEditorProps) {
 
   async function handleDelete() {
     if (!event || !window.confirm("この記録を削除しますか？")) return;
-    await deleteEventAction(event.id);
+    const result = await deleteEventAction(event.id);
+    if (result.error) setDeleteError(result.error);
   }
 
   return (
@@ -207,6 +209,7 @@ export function EventEditor({ event }: EventEditorProps) {
 
       {event ? (
         <div className="edit-actions">
+          {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
           <Link className="text-link" href="/timeline">
             履歴へ戻る
           </Link>

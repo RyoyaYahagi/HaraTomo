@@ -70,8 +70,15 @@ export async function updateEventAction(
   redirect("/timeline?updated=1");
 }
 
-export async function deleteEventAction(id: number): Promise<void> {
-  getEventRepository().delete(id);
+export async function deleteEventAction(id: number): Promise<EventActionState> {
+  try {
+    if (!getEventRepository().delete(id)) {
+      return { error: "この記録は見つかりませんでした。" };
+    }
+  } catch {
+    return { error: "記録を削除できませんでした。時間をおいて再度お試しください。" };
+  }
+
   revalidatePath("/");
   revalidatePath("/timeline");
   redirect("/timeline?deleted=1");
