@@ -1,252 +1,254 @@
 # HaraTomo 開発準備
 
-## 1. 最初に決める技術選定
+## 1. MVPで採用する構成
 
-### Mobile
+まずWebアプリとして作る。
 
-候補:
+### Stack
 
-#### React Native + Expo
+- Next.js
+- TypeScript
+- SQLite
+- Drizzle ORM
+- Zod
+- LLM API
 
-向いている場合:
+MVPでは単一Next.jsアプリにまとめる。
 
-- TypeScriptで統一したい
-- Web/Node経験を活かしたい
-- 開発速度を重視
-- 将来的にAndroidも視野
+```text
+HaraTomo/
+├── app/
+├── components/
+├── lib/
+│   ├── db/
+│   ├── ai/
+│   └── insights/
+├── drizzle/
+├── docs/
+└── ...
+```
 
-#### Swift / SwiftUI
+以下はMVPでは導入しない。
 
-向いている場合:
-
-- iOSを最優先
-- HealthKit / Siri / App Intents等を深く使いたい
-- Appleプラットフォームとの統合を重視
-
-現時点の構想では、MVP速度重視なら React Native + Expo、Apple連携を強くするなら SwiftUI が有力。
-
----
-
-## 2. Backend
-
-必要機能:
-
-- Authentication
-- REST / RPC API
 - PostgreSQL
-- Vector / semantic search
-- background jobs
-- scheduled jobs
-- AI gateway
-- Web search
-- audit log
-
-候補:
-
 - Supabase
 - Firebase
-- Cloudflare
-- Vercel + managed DB
-- AWS / GCP
-
-MVPでは運用負荷を減らすため、Supabase等のmanaged backendが扱いやすい。
-
----
-
-## 3. DBで最初に持つべき概念
-
-詳細は data-model.md 参照。
-
-重要なのは、すべてを `food_logs` に押し込まず、**Event + typed detail** 的に扱えること。
-
-候補:
-
-- users
-- events
-- meals
-- meal_items
-- symptoms
-- context_events
-- memories
-- observations
-- insights
-- sources
-
-将来:
-
-- meal_plans
-- recipes
-- pantry_items
-- shopping_lists
-- restaurants
-- menu_items
+- Vector DB
+- Redis
+- Queue
+- Background Worker
+- Microservices
+- Separate API server
+- Authentication
+- RLS
+- Audit log
 
 ---
 
-## 4. AI Pipeline
+## 2. SQLite
+
+MVPではSQLiteを直接利用する。
+
+理由:
+
+- 個人開発でセットアップが軽い
+- SQLで時系列集計しやすい
+- ローカルで完結できる
+- 後から他のSQL DBへ移しやすい
+
+注意:
+
+公開デプロイする段階では、実行環境がSQLiteファイルを永続化できるか確認する必要がある。
+
+MVPのローカル開発ではこの問題を先に解かない。
+
+---
+
+## 3. 最小AI Pipeline
 
 ### Input
 
+```text
+text
+ ↓
+LLM structured output
+ ↓
+Zod validation
+ ↓
+confirmation UI
+ ↓
+SQLite
 ```
+
+まずtextだけで完成させる。
+
+音声は後から:
+
+```text
 voice
-  ↓
+ ↓
 speech-to-text
-  ↓
-raw utterance
-  ↓
-LLM structured extraction
-  ↓
-schema validation
-  ↓
-user confirmation
-  ↓
-DB
+ ↓
+上と同じtext pipeline
 ```
 
-### Ask
-
-```
-user question
-  ↓
-intent detection
-  ↓
-SQL / retrieval
-  ↓
-deterministic calculation
-  ↓
-relevant memories
-  ↓
-LLM answer generation
-  ↓
-evidence links
-```
-
-重要:
-
-**LLMにDB全体を渡して集計させない。**
-
-検索・件数・割合・時間計算はコードで行う。
+に接続する。
 
 ---
 
-## 5. Personal Memory
+## 4. LLM出力
 
-Memoryはチャット履歴そのものとは分ける。
+最初はevent schemaを小さく保つ。
+
+```ts
+type EventDraft = {
+  type: "meal" | "symptom" | "context";
+  occurredAt: string;
+  label: string;
+  severity?: number;
+  note?: string;
+};
+```
+
+LLMに以下をやらせない。
+
+- 症状率の計算
+- 原因判定
+- DB検索
+- 数値の推測
+
+---
+
+## 5. DB
+
+MVPでは細かい正規化をしすぎない。
+
+最低限:
+
+- events
+- profile
+
+だけから始める。
+
+将来必要になった時点で:
+
+- meal_items
+- insights
+- sources
+- meal_plans
+- pantry_items
+- shopping_lists
+
+などへ分離する。
+
+---
+
+## 6. Personal Memory
+
+MVPではMemory Engineを作らない。
+
+「AIが自分を知っている」体験はまず:
+
+1. SQLiteに過去eventがある
+2. profileに明示的な好みがある
+3. 質問時にコードが必要なデータを取得
+4. LLMへ渡す
+
+だけで実現する。
+
+```text
+question
+ ↓
+SQL / TypeScript retrieval
+ ↓
+computed summary
+ ↓
+profile
+ ↓
+LLM
+```
+
+EmbeddingやVector Searchは必要になってから追加する。
+
+---
+
+## 7. Insight
+
+MVPでは1種類だけ実装する。
+
+**「症状の前6時間に何があったか」**
 
 例:
 
-```json
-{
-  "type": "food_preference",
-  "statement": "朝は調理に10分以上かけたくない",
-  "source": "user_explicit",
-  "confidence": 1.0
-}
-```
+腹痛10件について、その6時間前までのmeal/contextを取得する。
 
-```json
-{
-  "type": "learned_pattern",
-  "statement": "睡眠6時間未満かつ辛い食事の日に腹痛が多い",
-  "source": "computed",
-  "support_count": 8,
-  "confidence": 0.64
-}
-```
+計算するもの:
 
-**ユーザーが明示的に話した事実**と、**システムが推測した傾向**を分離する。
-
----
-
-## 6. Insight Engine
-
-MVPでは高度なMLより、透明な集計から始める。
-
-### 最初に実装する候補
-
-症状時刻を (t_s)、食事・要因を (t_e) とする。
-
-```
-0 < t_s - t_e <= window
-```
-
-を満たすイベントを紐付ける。
-
-window例:
-
-- 2h
-- 4h
-- 6h
-- 12h
-- 24h
-
-食品/要因ごとに
-
-- exposures
-- symptoms_after_exposure
-- symptom_rate
-- baseline_rate
-- lift
+- 症状件数
+- 各labelの出現回数
 - sample size
 
-を計算する。
+最初から以下は実装しない。
 
-将来的に:
-
-- conditional analysis
-- confounder adjustment
+- baseline rate
+- lift
 - Bayesian update
+- confounder adjustment
+- causal inference
+- ML
+- custom confidence score
 - N-of-1 experiment
-- time-series model
 
-を検討。
-
----
-
-## 7. External Food Data
-
-外食情報はWeb検索だけに依存しない。
-
-保存したいmetadata:
-
-- source_url
-- source_type
-- retrieved_at
-- official / unofficial
-- raw snapshot hash
-- parsed fields
-
-更新されたメニュー情報と古い履歴を混同しないように、取得時点を必ず保持する。
+必要性が見えてから追加する。
 
 ---
 
-## 8. Testing
+## 8. Authentication
 
-### Unit
+ローカルMVPではログインを作らない。
 
-- Event parsing後のschema
-- 時刻変換
-- exposure window計算
-- insight集計
-- pantry quantity
-- expiration logic
+単一ユーザー前提で十分。
 
-### Integration
+公開して他のユーザーに使ってもらうタイミングで:
 
-- STT → extraction → DB
-- chat → retrieval → answer
-- web menu retrieval
-- auth
+- Authentication
+- user_id
+- access control
 
-### AI Evaluation
+を追加する。
 
-固定テストセットを用意する。
+---
+
+## 9. Export / Delete
+
+MVP:
+
+- event単位の削除
+- 全event削除
+- JSON export
+
+CSV、アカウント削除、複雑なprivacy dashboardは公開版まで後回し。
+
+---
+
+## 10. Testing
+
+テストもMVP範囲に合わせる。
+
+### 必須
+
+- Zod schema validation
+- event CRUD
+- 日時処理
+- 6時間window集計
+
+### AI fixture
+
+5〜10個程度の固定入力から始める。
 
 例:
 
-入力:
-
-```
+```text
 昨日の昼に牛丼。夕方冷えて、夜8時に腹痛7くらい。
 ```
 
@@ -256,94 +258,77 @@ window例:
 - context: 冷え
 - symptom: 腹痛
 - severity: 7
-- relative dates correctly resolved
 
-評価項目:
-
-- event type
-- datetime
-- entity
-- severity
-- hallucination
-- missing information
+最初から大規模なAI evaluation基盤は作らない。
 
 ---
 
-## 9. Observability
+## 11. Error handling
 
-最低限記録する。
+最低限:
 
-- request id
-- model
-- latency
-- token usage
-- parse success/failure
-- retrieval source
-- tool errors
+- LLM失敗時に元入力を失わない
+- JSON parse / schema validation失敗を表示
+- DB保存失敗を表示
 
-健康情報そのものを平文application logへ残さないよう注意。
+高度なobservability基盤は不要。
+
+development中はconsole / local logで十分。
 
 ---
 
-## 10. セキュリティ
+## 12. 開発順序
 
-- LLM API keyはserver-side
-- secrets manager / environment variables
-- Row Level Security
-- user_idベースのデータ分離
-- rate limit
-- prompt injection対策
-- fetched Web contentを命令として扱わない
-- URL allow/deny policy
-- dependency scan
-- secret scan
+### Step 1
 
----
+Next.js + SQLite + Drizzleを起動。
 
-## 11. 開発の最初のIssue候補
+### Step 2
 
-### P0
+手動フォームでevent CRUD。
 
-1. Product scope / MVP確定
-2. Tech stack決定
-3. Repository scaffold
-4. DB schema v0
-5. Authentication
-6. Timeline CRUD
-7. Text → structured event extraction
-8. Voice input
-9. Confirmation/edit UI
-10. Basic insight calculation
-11. AI chat over own logs
-12. Privacy / delete / export
+AIなしでもTimelineを動かす。
 
-### P1
+### Step 3
 
-13. External restaurant/menu lookup
-14. Source citation
-15. Memory management UI
-16. Notifications
-17. Meal planning prototype
+自然文 → structured event。
 
-### P2
+### Step 4
 
-18. Pantry
-19. Expiration
-20. Grocery list
-21. Receipt / barcode
-22. Agent automation
+確認UI → 保存。
+
+### Step 5
+
+症状前6時間の簡易Insight。
+
+ここで最初のP0完成。
+
+### Step 6
+
+音声入力。
+
+### Step 7
+
+過去ログについてAIに質問。
+
+### Step 8
+
+簡単なprofile。
 
 ---
 
-## 12. MVP完成条件
+## 13. 将来まで作り込みすぎないルール
 
-以下のシナリオが一通り動けばMVPとする。
+実装時は次を避ける。
 
-1. ユーザーが音声で今日の出来事を話す
-2. 食事・症状・冷え等へ正しく分解される
-3. ユーザーが修正して保存できる
-4. タイムラインで確認できる
-5. 数週間分のログから簡易パターンを計算できる
-6. 「最近お腹を壊した日の共通点は？」と質問できる
-7. AIが実データに基づいて回答し、観測数の少なさを隠さない
-8. ユーザー自身がデータを削除・エクスポートできる
+- 将来用interfaceの大量作成
+- 未使用のRepository abstraction
+- Generic agent framework
+- 複雑なplugin system
+- 独自workflow engine
+- 将来のモバイルアプリを想定した過剰なAPI分離
+- 使っていないDBテーブル
+- 早すぎるキャッシュ
+- 早すぎる最適化
+
+必要になったときに追加する。
