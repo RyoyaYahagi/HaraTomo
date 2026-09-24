@@ -277,6 +277,50 @@ a:focus-visible {
   margin-bottom: 28px;
 }
 
+.insight-content > .muted {
+  margin-bottom: 28px;
+}
+
+.insight-groups {
+  display: grid;
+  gap: 32px;
+}
+
+.insight-group + .insight-group {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.insight-group h2 {
+  margin-bottom: 4px;
+}
+
+.insight-group > .muted {
+  margin-bottom: 12px;
+}
+
+.insight-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.insight-list li span:last-child {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .editor-content > .muted {
   margin-bottom: 24px;
 }

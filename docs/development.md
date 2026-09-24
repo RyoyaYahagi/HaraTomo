@@ -281,16 +281,18 @@ Jev専用テーブルは作らない。
 
 MVPは「症状の前6時間に何があったか」だけ。
 
-すべてSQL / TypeScriptで計算する。
+表示時に全イベントを読み、TypeScriptで計算する。Insight専用のテーブルやAI呼び出しは作らない。症状はnormalized labelがあればそれ、なければraw labelでグループ化する。各グループの分母は要因の有無によらず、その種類の全症状記録数とする。症状時刻の6時間前ちょうど以上、症状時刻未満のmeal/contextを対象にする。1つの症状記録の範囲内で、同じmeal raw labelまたはcontext normalized label（なければraw label）は一度だけ数える。`other`と`symptom`は要因に含めない。
 
 Jevを使わない。
+
+次の計算はすべてコードで行い、AIには委ねない。
+
+画面は症状カテゴリ別に要因の件数を `該当した症状記録数 / グループ内の症状記録数` として表示する。百分率、原因、危険度、診断は表示しない。
 
 - time difference
 - grouping
 - count
 - sample size
-
-をAIに委ねない。
 
 ---
 
