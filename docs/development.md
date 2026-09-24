@@ -16,6 +16,8 @@
 HaraTomo/
 ├── app/
 ├── components/
+│   ├── ui/          # generic UI primitives
+│   └── app/         # HaraTomo固有component
 ├── lib/
 │   ├── ai/
 │   │   ├── extract.ts
@@ -24,7 +26,17 @@ HaraTomo/
 │   └── insights/
 ├── drizzle/
 └── docs/
+    ├── PRODUCT.md
+    ├── UX.md
+    ├── DESIGN.md
+    └── AI_UI_PROMPT.md
 ```
+
+`components/ui/` はButton / Input / Dialogなどアプリ固有の意味を持たないprimitiveに限定する。
+
+`components/app/` はEventRow / NaturalLanguageEntry / MealItemなどHaraTomoのdomainを含むcomponentを置く。
+
+空directoryは作らず、必要なcomponentを実装するときに作成する。将来の再利用を想定した先回りの抽象化はしない。
 
 MVPでは以下を導入しない。
 
@@ -362,5 +374,7 @@ AI Ask / profile。
 - 未使用テーブル
 - 早すぎるcache
 - 過剰なAPI分離
+- 将来用のUI component大量作成
+- design system packageの先行導入
 
 **「固定候補の曖昧な判断か？」がYesのときだけJevを検討する。**
