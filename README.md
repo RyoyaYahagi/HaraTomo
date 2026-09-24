@@ -21,7 +21,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-ブラウザーで <http://localhost:3000> を開きます。SQLiteは初回利用時に必要なmigrationを実行し、既定の`data/haratomo.db`へ保存します。開発・確認用コマンドは`npm test`、`npm run typecheck`、`npm run lint`、`npm run build`です。環境変数やDBの詳細は[開発手順](docs/development.md)を参照してください。
+ブラウザーで <http://127.0.0.1:3000> を開きます。SQLiteは初回利用時に必要なmigrationを実行し、既定の`data/haratomo.db`へ保存します。開発・確認用コマンドは`npm test`、`npm run typecheck`、`npm run lint`、`npm run build`です。環境変数やDBの詳細は[開発手順](docs/development.md)を参照してください。
 
 > 目標は「毎回フォームに食事を記録すること」ではなく、  
 > **自分のお腹に関する出来事をAIに話すだけで、記録と振り返りが済むこと**。
