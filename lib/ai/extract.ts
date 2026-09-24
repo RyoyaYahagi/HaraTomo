@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { geminiExtractionOutputSchema } from "./schema";
 
-const GEMINI_MODEL = "gemini-3.8-flash";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 export async function extractEvents(rawText: string, today: string): Promise<unknown> {
   const apiKey = process.env.GEMINI_API_KEY;

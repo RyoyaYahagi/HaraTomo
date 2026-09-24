@@ -108,7 +108,7 @@ JevをLLMの代替として全面利用しない。
 
 #### JavaScript SDK接続
 
-- Gemini: `@google/genai` の `GoogleGenAI.models.generateContent()` をサーバー側で呼び、JSON Schema付きJSONを受け取ってZodで再検証する。現行モデル識別子は `gemini-3.8-flash`。
+- Gemini: `@google/genai` の `GoogleGenAI.models.generateContent()` をサーバー側で呼び、JSON Schema付きJSONを受け取ってZodで再検証する。現行モデル識別子は `gemini-3.5-flash-lite`。
 - Jev: `@typesafe-ai/sdk` の `TypeSafeClient.systemOne()` に `choice()` と `noul()` の質問を渡す。現行の既定モデル識別子は `jev-latest`。SDKの `noul` はYesの確率を返すため、Boolean判断へ変換する境界は0.5とする。この確率は画面へ出さない。
 - 接続コードは`server-only`とし、キーは `GEMINI_API_KEY` と `TYPESAFE_API_KEY` からだけ読む。追跡対象の `.env.example` は空欄にする。開発者ごとの `.env.local` はGitへ追加しない。
 - 複数候補の保存はSQLite transactionでまとめる。途中のDB書き込みが失敗した場合は全件を取り消す。
