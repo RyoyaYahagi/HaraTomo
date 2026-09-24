@@ -102,6 +102,10 @@ JevをLLMの代替として全面利用しない。
 
 現行のP0記録画面はGeminiで候補を抽出し、Jevで種類・症状/生活要因の分類・元文支持・追加確認要否を判定する。初期実装では、曖昧さに関係なく全候補を確認画面へ出す。日付が省略された候補には利用日の現地日付を入れ、時刻が省略・曖昧な候補は空欄にして保存前の入力を必須にする。Jevが失敗した候補も元文とGemini候補を保持して確認画面に出す。Geminiまたは出力schema検証が失敗した場合はHomeの下書きを保持し、手動入力へ進める。
 
+音声入力はPCブラウザーで最大60秒録音する補助経路とする。ブラウザーが録音時間を制限し、Next.jsのNode runtime routeは音声の受信サイズを10 MiB以下に検証する。routeは音声を`@google/genai` Files APIへ一時アップロードして `gemini-3.5-transcribe` Interactions APIで逐語文字起こしする。routeは処理後にFiles APIで削除を試みる。削除に失敗しても利用可能な文字起こしは返し、音声がGemini上に残っている可能性を画面に表示する。文字起こし自体にも失敗した場合は入力文を保持し、必要なら再録音できることを案内する。ブラウザーはMediaRecorderの全チャンクをまとめ、停止後にマイクtrackとBlob参照を解放する。文字起こし結果をHomeの既存下書きへ追記する。「記録する」を押されるまではEvent候補を抽出しない。音声ファイルをSQLiteまたはローカルディスクへ保存しない。この経路は `GEMINI_API_KEY` だけを使う。
+
+接続形はGoogleの[音声文字起こしガイド](https://ai.google.dev/gemini-api/docs/transcribe)と導入済み `@google/genai` 型定義を基準にする。言語ヒントは日本語（`ja-JP`）、転記モードは逐語（`verbatim`）に固定する。
+
 #### JavaScript SDK接続
 
 - Gemini: `@google/genai` の `GoogleGenAI.models.generateContent()` をサーバー側で呼び、JSON Schema付きJSONを受け取ってZodで再検証する。現行モデル識別子は `gemini-3.8-flash`。
@@ -387,7 +391,7 @@ Zod + confirmation UI + SQLite保存。
 ここでP0。
 
 ### Step 8
-音声。
+音声入力。
 
 ### Step 9
 AI Ask / profile。

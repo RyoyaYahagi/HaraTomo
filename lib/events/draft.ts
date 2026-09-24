@@ -23,6 +23,11 @@ export function saveRecordDraft(value: string): void {
   window.dispatchEvent(new Event(RECORD_DRAFT_EVENT));
 }
 
+export function appendTranscriptToDraft(draft: string, transcript: string): string {
+  const separator = draft && !draft.endsWith("\n") ? "\n" : "";
+  return `${draft}${separator}${transcript}`;
+}
+
 export function clearRecordDraft(): void {
   window.localStorage.removeItem(RECORD_DRAFT_KEY);
   window.dispatchEvent(new Event(RECORD_DRAFT_EVENT));

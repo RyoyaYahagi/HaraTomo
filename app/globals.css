@@ -181,6 +181,38 @@ a:focus-visible {
   color: var(--foreground);
 }
 
+.text-button {
+  min-height: 40px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.voice-input {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: -8px;
+}
+
+.voice-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
 .button-danger {
   background: transparent;
   color: var(--danger);

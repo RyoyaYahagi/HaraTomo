@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useSyncExternalStore, type FormEvent } from "react";
+import { useActionState, useState, useSyncExternalStore, type FormEvent } from "react";
 import {
   generateEventDraftsAction,
   type RecordingActionState,
 } from "@/app/actions/events";
 import { EventConfirmation } from "./EventConfirmation";
 import { EventList } from "./EventList";
+import { VoiceInput } from "./VoiceInput";
 import type { EventRow } from "@/lib/db/schema";
 import {
+  appendTranscriptToDraft,
   getEmptyRecordDraft,
   getRecordDraft,
   saveRecordDraft,
@@ -28,6 +30,7 @@ export function RecordComposer({ recentEvents }: { recentEvents: EventRow[] }) {
     generateEventDraftsAction,
     initialRecordingState,
   );
+  const [isVoiceBusy, setIsVoiceBusy] = useState(false);
   const draft = useSyncExternalStore(
     subscribeToRecordDraft,
     getRecordDraft,
@@ -71,6 +74,11 @@ export function RecordComposer({ recentEvents }: { recentEvents: EventRow[] }) {
               value={draft}
               onChange={(event) => handleChange(event.currentTarget.value)}
             />
+            <VoiceInput
+              disabled={isProcessing}
+              onBusyChange={setIsVoiceBusy}
+              onTranscript={(transcript) => handleChange(appendTranscriptToDraft(getRecordDraft(), transcript))}
+            />
             <input type="hidden" name="today" defaultValue="" />
             {isProcessing ? (
               <div className="processing-message" role="status" aria-live="polite">
@@ -87,7 +95,7 @@ export function RecordComposer({ recentEvents }: { recentEvents: EventRow[] }) {
             <button
               className="button button-primary"
               type="submit"
-              disabled={!draft.trim() || isProcessing}
+              disabled={!draft.trim() || isProcessing || isVoiceBusy}
             >
               {isProcessing ? "整理中…" : "記録する"}
             </button>
