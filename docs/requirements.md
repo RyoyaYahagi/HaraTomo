@@ -1,24 +1,24 @@
 # HaraTomo 機能要件
 
-## 1. MVPの目的
-
-最初のMVPでは、次の体験だけを成立させる。
+## 1. MVPの処理フロー
 
 ```text
-自然文で記録
+自然文
   ↓
-AIが構造化
+LLM: event候補を抽出
   ↓
-ユーザーが確認・修正
+Jev: 固定候補から分類・検証
   ↓
-SQLiteへ保存
+Zod validation
   ↓
-タイムライン
+必要なら確認
   ↓
-簡単な傾向を見る
+SQLite
+  ↓
+Timeline / Simple Insight
 ```
 
-音声・AIチャット・外食検索などは、この流れが安定してから追加する。
+JevはすべてのAI処理に使わない。**Choice / Boolean / Scoreで自然に表せる判断だけ**に利用する。
 
 ---
 
@@ -26,7 +26,7 @@ SQLiteへ保存
 
 ### FR-001 自然文入力
 
-ユーザーは自由文で、食事・症状・生活要因をまとめて入力できる。
+食事・症状・生活要因をまとめて入力できる。
 
 例:
 
@@ -35,301 +35,240 @@ SQLiteへ保存
 16時ごろ腹痛、17時に下痢。
 ```
 
-### FR-002 AI構造化
+### FR-002 LLM抽出
 
-AIは入力を以下のeventへ分解する。
+LLMは自由な情報をEventDraft候補へ変換する。
+
+抽出対象:
+
+- 自由な食事名
+- 症状表現
+- 生活要因
+- 日時候補
+- severity候補
+- note
+
+LLMに最終的な原因判定や数値集計はさせない。
+
+### FR-003 Jev event分類
+
+抽出候補ごとに、必要であればJev Choiceで分類する。
+
+初期候補:
 
 - meal
 - symptom
 - context
+- other
 
-MVPでは event type を増やしすぎない。
+自由生成ではなく固定候補から選ぶ必要があるためJevを優先する。
 
-構造化例:
+### FR-004 Jev label正規化
 
-```json
-{
-  "events": [
-    {
-      "type": "meal",
-      "occurred_at": "2026-09-24T08:00:00+09:00",
-      "label": "トースト"
-    },
-    {
-      "type": "context",
-      "occurred_at": "2026-09-24T13:00:00+09:00",
-      "label": "冷え"
-    },
-    {
-      "type": "symptom",
-      "occurred_at": "2026-09-24T16:00:00+09:00",
-      "label": "腹痛"
-    }
-  ]
-}
-```
-
-### FR-003 確認・修正
-
-AIの抽出結果は保存前に確認できる。
-
-最低限:
-
-- 種類
-- 時刻
-- 内容
-- 症状の強さ
-
-を修正できる。
-
-複雑なフォームビルダーは作らない。
-
-### FR-004 Timeline
-
-保存したeventを時系列で表示する。
+症状や生活要因を既知カテゴリへ寄せる場合はJev Choiceを使う。
 
 例:
 
 ```text
-12:15 食事   ラーメン
-15:10 要因   冷え
-17:45 症状   腹痛 6/10
-18:05 症状   下痢
+「お腹がパンパン」
+→ bloating
+
+「クーラーで体が冷えた」
+→ cold_exposure
 ```
 
-### FR-005 CRUD
+候補外の内容は `other` とし、元のlabelは保持する。
 
-各eventについて:
+### FR-005 Jev抽出妥当性
 
-- 作成
-- 編集
-- 削除
+Jev Booleanで、LLMの抽出結果が元発言に支持されているかを判定できる。
 
-ができる。
+例:
 
-### FR-006 Simple Insight
+```text
+source:
+「夜8時に腹痛」
+
+candidate:
+symptom / 腹痛 / 20:00
+
+supportedBySource → true
+```
+
+低確率の判断を自動で「誤り」とは扱わず、確認対象に回す。
+
+### FR-006 Jev聞き返し判定
+
+Jev Booleanで `needsClarification` を判断する。
+
+例:
+
+```text
+「昨日なんかお腹微妙だった」
+→ needsClarification: high
+
+「昨日20時に下痢した」
+→ needsClarification: low
+```
+
+目的は、毎回確認フォームを出すのではなく、**曖昧な部分だけユーザーへ聞くこと**。
+
+P0初期は安全のため常時確認UIでもよい。挙動が安定したらJev結果で確認量を減らす。
+
+### FR-007 Zod validation
+
+Jev / LLMの結果に関係なく、保存前にschema validationする。
+
+AIのconfidenceでschema validationを省略しない。
+
+### FR-008 確認・修正
+
+最低限:
+
+- type
+- occurred_at
+- label
+- normalized_label
+- severity
+
+を修正できる。
+
+### FR-009 Timeline
+
+全eventを時系列表示する。
+
+### FR-010 CRUD
+
+eventの作成・編集・削除。
+
+### FR-011 Simple Insight
 
 MVPでは因果推論をしない。
 
-症状について、その前の一定時間内にあったeventを集計する。
+症状前6時間に出現したmeal/contextをTypeScript / SQLで集計する。
 
-初期値:
+計算:
 
-- window: 6時間
-
-表示例:
-
-```text
-直近10回の腹痛のうち
-- 4回: 冷えが6時間以内に記録
-- 3回: ラーメン系の食事が6時間以内に記録
-
-これは原因を示すものではありません。
-```
-
-最初は以下だけでよい。
-
-- event count
 - symptom count
-- occurrences before symptom
+- label occurrence count
 - sample size
 
-baseline、lift、高度なconfidence scoreは後回し。
+Jev・LLMには集計させない。
 
 ---
 
-## 3. P1機能
+## 3. P1
 
 ### FR-101 音声入力
-
-テキスト入力の前段にSpeech-to-Textを追加する。
 
 ```text
 voice
  ↓
 speech-to-text
  ↓
-既存の自然文入力処理
+既存text pipeline
 ```
-
-音声専用の保存ロジックは作らない。
-
-MVPでは音声原本を保存しない。
 
 ### FR-102 AI Ask
 
-自分の履歴について質問できる。
+ユーザー自身の履歴について質問できる。
 
-例:
+SQL / TypeScriptで検索・集計し、その結果をLLMへ渡して文章化する。
 
-- 「最近お腹を壊した日の共通点は？」
-- 「冷えた日に腹痛は多い？」
-- 「先週何を食べた？」
-
-SQL / TypeScriptで必要なデータを取得・集計し、その結果だけをLLMに渡す。
-
-Vector DBは使わない。
+必要に応じてJevをintent分類に使えるが、MVPで無理に導入しない。
 
 ### FR-103 Simple Profile
 
-AIが最低限参照するプロフィールを保持する。
+明示された好み・希望だけ保持する。
 
-例:
-
-- 苦手な食べ物
-- 好きな食べ物
-- 普段の生活上の希望
-
-高度なMemory Engineは作らない。
+Memory Engineは作らない。
 
 ---
 
-## 4. MVPで固定する入力項目
+## 4. 初期カテゴリ
 
-### meal
+### symptom Choice候補
 
-必須:
+- abdominal_pain
+- diarrhea
+- constipation
+- bloating
+- gas
+- nausea
+- indigestion
+- bowel_sound
+- other
 
-- occurred_at
-- label
+### context Choice候補
 
-任意:
+- cold_exposure
+- lack_of_sleep
+- stress
+- exercise
+- alcohol
+- caffeine
+- other
 
-- amount
-- note
-
-### symptom
-
-必須:
-
-- occurred_at
-- label
-
-任意:
-
-- severity
-- note
-
-初期の症状候補:
-
-- 腹痛
-- 下痢
-- 便秘
-- 膨満感
-- ガス
-- 吐き気
-- 胃もたれ
-- 腹鳴
-
-### context
-
-必須:
-
-- occurred_at
-- label
-
-初期候補:
-
-- 冷え
-- 睡眠不足
-- ストレス
-- 運動
-- 飲酒
-- カフェイン
-
-自由入力も許可する。
+自由な元表現は別途保持する。
 
 ---
 
-## 5. MVPでは実装しない機能
+## 5. MVPでは実装しない
 
-以下は仕様として残すが、P0/P1には含めない。
-
-### 外食情報
-
-- Web検索
-- 公式メニュー取得
-- 栄養成分
-- アレルゲン
-- 原材料
-
-### 献立
-
-- 週間献立
-- 栄養最適化
-- 献立から自動食事ログ
-
-### 在庫
-
-- 冷蔵庫
-- 賞味期限
-- レシートOCR
-- バーコード
-- 自動消費
-
-### 買い物
-
-- 自動買い物リスト
-- 在庫との差分計算
-
-### Agent automation
-
-- 先回り通知
-- 自動献立変更
-- background job
-- scheduled task
+- Authentication / multi-user
+- Vector DB
+- 高度なMemory
+- causal inference
+- 医学的confidence score
+- 外食Web検索
+- meal planning
+- pantry
+- expiration
+- shopping list
+- push notification
+- generic agent framework
+- background jobs
 
 ---
 
-## 6. データ管理
+## 6. Jevを使わない処理
 
-P0では単一ユーザー・ローカル利用を想定する。
+次はJevへ渡さない。
 
-そのためMVPでは:
-
-- ログイン不要
-- アカウント管理不要
-- Row Level Security不要
-- user_idベースの複雑な権限管理不要
-
-最低限:
-
-- 個別event削除
-- 全event削除
-- JSON export
-
-を用意する。
-
-複数ユーザー公開時にAuthenticationを追加する。
+- 任意の料理名を生成・抽出する
+- 自然な説明文を書く
+- 日時差を計算する
+- 症状回数を数える
+- 6時間以内か判断する
+- DB検索
+- 数量・賞味期限計算
+- 医学的診断
+- 「原因かどうか」の最終判断
 
 ---
 
-## 7. AIの安全方針
+## 7. 将来のJev候補
 
-HaraTomoは原因を断定しない。
+将来、出力候補を事前に生成できる場合に利用する。
 
-避ける表現:
+- 献立候補からChoice
+- 外食メニュー候補からChoice
+- 通知する / しない Boolean
+- ユーザーに質問する / しない Boolean
+- 代替案の適合度 Score
 
-- 「この食品が原因です」
-- 「あなたはIBSです」
-- 「これなら絶対に安全です」
-
-使う表現:
-
-- 「記録上では関連が見られます」
-- 「観測数が少ないため判断できません」
-- 「他の要因も同時に記録されています」
+医学的な安全性判定には単独利用しない。
 
 ---
 
 ## 8. P0完成条件
 
-以下が一通り動けばP0完成とする。
-
-1. 自然文を入力
-2. AIがeventへ分解
-3. ユーザーが修正
-4. SQLiteへ保存
-5. Timelineで確認
-6. eventを編集・削除
-7. 症状前6時間のeventを簡単に集計
+1. 自然文入力
+2. LLMがevent候補を抽出
+3. Jevが適切な箇所を分類 / 検証
+4. Zod validation
+5. 必要箇所を確認・修正
+6. SQLite保存
+7. Timeline表示
+8. CRUD
+9. 症状前6時間をコードで集計
