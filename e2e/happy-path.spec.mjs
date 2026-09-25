@@ -7,7 +7,7 @@ test("manual record happy path persists an event and shows it in the timeline", 
   await expect(page.locator("#occurredAtLocal")).not.toHaveValue("");
 
   await page.getByLabel("種類").selectOption("symptom");
-  await page.getByLabel("内容").fill("E2E腹痛");
+  await page.getByRole("textbox", { name: "内容", exact: true }).fill("E2E腹痛");
   await page.getByLabel("分類名（任意）").selectOption("abdominal_pain");
   await page.getByLabel("症状の強さ（0〜10）").fill("6");
 
