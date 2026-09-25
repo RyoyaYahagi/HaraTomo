@@ -1,0 +1,182 @@
+[
+  {
+    "id": "meal-onigiri-exact-time",
+    "smoke": true,
+    "today": "2026-09-25",
+    "input": "12時30分におにぎりを食べた。",
+    "expected": [
+      { "type": "meal", "time": "12:30", "normalizedLabel": "", "labelIncludesAny": ["おにぎり"] }
+    ]
+  },
+  {
+    "id": "symptom-abdominal-pain-severity",
+    "smoke": true,
+    "today": "2026-09-25",
+    "input": "20時に腹痛。痛みは6/10。",
+    "expected": [
+      { "type": "symptom", "time": "20:00", "normalizedLabel": "abdominal_pain", "severity": 6, "labelIncludesAny": ["腹痛"] }
+    ]
+  },
+  {
+    "id": "symptom-diarrhea",
+    "smoke": true,
+    "today": "2026-09-25",
+    "input": "17時に下痢した。",
+    "expected": [
+      { "type": "symptom", "time": "17:00", "normalizedLabel": "diarrhea", "labelIncludesAny": ["下痢"] }
+    ]
+  },
+  {
+    "id": "context-cold-exposure",
+    "smoke": true,
+    "today": "2026-09-25",
+    "input": "22時にクーラーで体が冷えた。",
+    "expected": [
+      { "type": "context", "time": "22:00", "normalizedLabel": "cold_exposure", "labelIncludesAny": ["冷", "クーラー"] }
+    ]
+  },
+  {
+    "id": "multi-meal-context-symptom",
+    "smoke": true,
+    "today": "2026-09-25",
+    "input": "12時にラーメンを食べた。18時に冷房で冷えた。20時に腹痛、6/10。",
+    "expected": [
+      { "type": "meal", "time": "12:00", "normalizedLabel": "", "labelIncludesAny": ["ラーメン"] },
+      { "type": "context", "time": "18:00", "normalizedLabel": "cold_exposure", "labelIncludesAny": ["冷"] },
+      { "type": "symptom", "time": "20:00", "normalizedLabel": "abdominal_pain", "severity": 6, "labelIncludesAny": ["腹痛"] }
+    ]
+  },
+  {
+    "id": "symptom-constipation",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "8時に便秘だった。",
+    "expected": [
+      { "type": "symptom", "time": "08:00", "normalizedLabel": "constipation", "labelIncludesAny": ["便秘"] }
+    ]
+  },
+  {
+    "id": "symptom-bloating-colloquial",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "19時にお腹がパンパンに張った。",
+    "expected": [
+      { "type": "symptom", "time": "19:00", "normalizedLabel": "bloating", "labelIncludesAny": ["パンパン", "張"] }
+    ]
+  },
+  {
+    "id": "symptom-gas",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "21時ごろではなく、21時ちょうどにガスが多かった。",
+    "expected": [
+      { "type": "symptom", "time": "21:00", "normalizedLabel": "gas", "labelIncludesAny": ["ガス"] }
+    ]
+  },
+  {
+    "id": "symptom-nausea",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "13時に吐き気がした。",
+    "expected": [
+      { "type": "symptom", "time": "13:00", "normalizedLabel": "nausea", "labelIncludesAny": ["吐き気"] }
+    ]
+  },
+  {
+    "id": "symptom-indigestion",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "23時に胃もたれした。",
+    "expected": [
+      { "type": "symptom", "time": "23:00", "normalizedLabel": "indigestion", "labelIncludesAny": ["胃もたれ"] }
+    ]
+  },
+  {
+    "id": "symptom-bowel-sound",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "10時にお腹がゴロゴロ鳴った。",
+    "expected": [
+      { "type": "symptom", "time": "10:00", "normalizedLabel": "bowel_sound", "labelIncludesAny": ["ゴロゴロ", "鳴"] }
+    ]
+  },
+  {
+    "id": "context-lack-of-sleep",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "7時に寝不足だと感じた。",
+    "expected": [
+      { "type": "context", "time": "07:00", "normalizedLabel": "lack_of_sleep", "labelIncludesAny": ["寝不足"] }
+    ]
+  },
+  {
+    "id": "context-stress",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "14時に仕事でかなりストレスを感じた。",
+    "expected": [
+      { "type": "context", "time": "14:00", "normalizedLabel": "stress", "labelIncludesAny": ["ストレス"] }
+    ]
+  },
+  {
+    "id": "context-exercise",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "18時に30分ランニングした。",
+    "expected": [
+      { "type": "context", "time": "18:00", "normalizedLabel": "exercise", "labelIncludesAny": ["ランニング", "運動"] }
+    ]
+  },
+  {
+    "id": "context-alcohol",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "19時に飲酒した。",
+    "expected": [
+      { "type": "context", "time": "19:00", "normalizedLabel": "alcohol", "labelIncludesAny": ["飲酒"] }
+    ]
+  },
+  {
+    "id": "context-caffeine",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "15時にカフェインを摂った。",
+    "expected": [
+      { "type": "context", "time": "15:00", "normalizedLabel": "caffeine", "labelIncludesAny": ["カフェイン"] }
+    ]
+  },
+  {
+    "id": "other-medication",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "9時に薬を飲んだ。",
+    "expected": [
+      { "type": "other", "time": "09:00", "normalizedLabel": "", "labelIncludesAny": ["薬"] }
+    ]
+  },
+  {
+    "id": "relative-date-missing-time-needs-clarification",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "昨日、腹痛があった。",
+    "expected": [
+      { "type": "symptom", "date": "2026-09-24", "time": "", "normalizedLabel": "abdominal_pain", "labelIncludesAny": ["腹痛"], "needsClarification": true }
+    ]
+  },
+  {
+    "id": "approximate-time-needs-clarification",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "夕方に下痢した。",
+    "expected": [
+      { "type": "symptom", "time": "", "normalizedLabel": "diarrhea", "labelIncludesAny": ["下痢"], "needsClarification": true }
+    ]
+  },
+  {
+    "id": "no-recordable-event",
+    "smoke": false,
+    "today": "2026-09-25",
+    "input": "今日は特に記録することはありません。",
+    "expected": []
+  }
+]

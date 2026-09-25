@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "eval:smoke": "node --conditions=react-server --import tsx eval/run.ts --smoke",
+    "eval:ai": "node --conditions=react-server --import tsx eval/run.ts"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",
