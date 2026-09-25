@@ -315,44 +315,70 @@ profileはP1で必要になった場合にのみこの要約へ含める。必�
 
 ### deterministic
 
-- Zod validation
-- CRUD
-- datetime
-- 6h window
+通常の変更では、まずAPIを呼ばない決定的テストを使う。
 
-### LLM fixture
-
-5〜10件から開始。
-
-### Jev fixture
-
-最低限:
-
-1. event type
-2. symptom normalization
-3. context normalization
-4. supportedBySource
-5. needsClarification
-
-について、明確例と曖昧例を用意する。
-
-例:
-
-```text
-「20時に下痢した」
-expected:
-type = symptom
-normalized = diarrhea
-needsClarification = false
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-```text
-「昨日なんかお腹微妙」
-expected:
-needsClarification = true
+`tests/ai-pipeline.test.ts` はGemini/Jevをfixtureへ差し替えてpipelineのfallbackやvalidationを確認する。
+`tests/eval-dataset.test.ts` は実APIを呼ばず、AI評価データセットが20件・smokeが5件であることと最低限の形式を確認する。
+
+### live AI eval
+
+`eval/cases.json` に20件の固定評価ケースを置く。5件だけ `smoke: true` とし、日常的な短い確認に使う。
+
+```sh
+# .env.local等で GEMINI_API_KEY / TYPESAFE_API_KEY を設定
+npm run eval:smoke  # 5件
+npm run eval:ai     # 20件
 ```
 
-モデルやpromptを変更したらfixtureで回帰確認する。
+live evalは実際のGemini/Jev APIを呼ぶため、CIでは実行しない。モデル、prompt、schema、Jev criteriaを変更したときは20件を実行し、通常の実装確認では必要に応じて5件のsmokeだけを使う。
+
+評価は自由な料理名などの完全一致ではなく、主に次を見る。
+
+- event数
+- event type
+- normalized label
+- 明示された時刻
+- 明示されたseverity
+- 時刻が曖昧な場合のneedsClarification
+
+失敗時は実際のReviewDraftを表示し、期待値が過度に厳しいのか、モデル挙動が退行したのかを確認する。
+
+### browser E2E
+
+固定happy-pathはPlaywrightで1本だけ持つ。CIではAI APIを使わず、専用SQLiteへ手動eventを保存し、Timelineへ表示されるところまで確認する。
+
+ローカルで実行する場合はPlaywrightを一時インストールする。
+
+```sh
+npm install --no-save --package-lock=false @playwright/test@1.63.0
+npx playwright install chromium
+npx playwright test
+```
+
+Playwrightをpackage.jsonへ常設しないのは、MVPでブラウザテストが1本だけのため。E2Eが増えたらdevDependency化してpackage-lockへ固定する。
+
+StagehandはPlaywright系のブラウザ操作にAIの `act` / `extract` / `observe` を組み合わせられるが、現時点のCI gateは固定操作だけなので使わない。将来、UI変更への自己修復や探索的なブラウザテストが必要になった場合に追加を検討する。固定happy-pathはPlaywright locatorの方が決定的で、追加のLLM APIキーや推論コストも不要。
+
+### CI
+
+`.github/workflows/ci.yml` は `develop` / `main` へのpushとPull Requestで次を実行する。
+
+1. npm ci
+2. lint
+3. typecheck
+4. node test
+5. Next.js build
+6. Playwright + ChromiumをCI内だけ一時インストール
+7. browser happy-path
+
+Gemini/JevのsecretはCIに登録しない。
 
 ---
 
